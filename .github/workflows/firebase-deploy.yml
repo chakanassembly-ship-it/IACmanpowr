@@ -18,10 +18,17 @@ jobs:
         with:
           node-version: 18
 
+<<<<<<< HEAD
       - name: Clean install dependencies
         run: |
           rm -rf node_modules package-lock.json
           npm install
+=======
+      - name: Install dependencies (clean + fix)
+        run: |
+          npm ci || npm install
+          npm rebuild @tailwindcss/oxide --force || true
+>>>>>>> 110ad5f (Fix Tailwind oxide CI issue)
 
       - name: Build project
         run: npm run build
