@@ -3,7 +3,21 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+
+// -------------------------------
+// 🔥 Firebase Config (INLINE FIX)
+// -------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyByRBbpKyosatnOMyH-gfMFxS6cdNzouNc",
+  authDomain: "iacmanpowermonitoring77.firebaseapp.com",
+  projectId: "iacmanpowermonitoring77",
+  storageBucket: "iacmanpowermonitoring77.firebasestorage.app",
+  messagingSenderId: "671304202969",
+  appId: "1:671304202969:web:c8ef1e7bbeb7716a6c1cc8",
+
+  // 👇 optional custom database
+  firestoreDatabaseId: "ai-studio-e708ba66-32e2-4e7e-b1d3-192f656f2acd"
+};
 
 // -------------------------------
 // 🔥 Initialize Firebase
@@ -19,24 +33,24 @@ export const auth = getAuth(app);
 // 🗄️ Firestore (SAFE INIT)
 // -------------------------------
 
-// 👉 Custom DB ID (if exists)
+// 👉 Custom DB ID (safe check)
 const databaseId =
   typeof firebaseConfig.firestoreDatabaseId === 'string' &&
   firebaseConfig.firestoreDatabaseId.trim() !== ''
     ? firebaseConfig.firestoreDatabaseId
     : '(default)';
 
-// 🔥 Debug log (helpful)
+// 🔥 Debug log
 console.log('🔥 Using Firestore DB:', databaseId);
 
-// 🔥 Initialize Firestore safely
+// 🔥 Initialize Firestore
 export const db =
   databaseId === '(default)'
     ? getFirestore(app)
     : getFirestore(app, databaseId);
 
 // -------------------------------
-// 🔁 Retry Connection (UI FIX)
+// 🔁 Retry Connection
 // -------------------------------
 export const retryFirestore = () => {
   console.warn('🔁 Retrying Firestore connection...');
@@ -88,7 +102,7 @@ export function handleFirestoreError(
 
   console.error('🔥 Firestore Error:', errInfo);
 
-  // 👇 helpful debug
+  // 🔍 Debug helpers
   if (errInfo.error.includes('not found')) {
     console.error('❌ Database not found → check firestoreDatabaseId');
   }
