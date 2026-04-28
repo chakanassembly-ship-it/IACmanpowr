@@ -14,8 +14,6 @@ const firebaseConfig = {
   storageBucket: "iacmanpowermonitoring77.firebasestorage.app",
   messagingSenderId: "671304202969",
   appId: "1:671304202969:web:c8ef1e7bbeb7716a6c1cc8",
-
-  // 👇 optional custom database
   firestoreDatabaseId: "ai-studio-e708ba66-32e2-4e7e-b1d3-192f656f2acd"
 };
 
@@ -40,15 +38,10 @@ const databaseId =
     ? firebaseConfig.firestoreDatabaseId
     : '(default)';
 
-// 🔥 Debug log
-console.log('🔥 Using Firestore DB:', databaseId);
-
-// 🔥 Initialize Firestore
 export const db =
   databaseId === '(default)'
     ? getFirestore(app)
     : getFirestore(app, databaseId);
-
 // -------------------------------
 // 🔁 Retry Connection
 // -------------------------------
