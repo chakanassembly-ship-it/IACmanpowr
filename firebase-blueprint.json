@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "Department": {
+      "title": "Department",
+      "description": "A department in the plant",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the department" },
+        "description": { "type": "string", "description": "Description of the department" },
+        "hasLines": { "type": "boolean", "description": "Whether this department has sub-lines" },
+        "targets": {
+          "type": "object",
+          "properties": {
+            "A": { "type": "number" },
+            "B": { "type": "number" },
+            "C": { "type": "number" },
+            "G": { "type": "number" }
+          },
+          "required": ["A", "B", "C", "G"]
+        }
+      },
+      "required": ["name"]
+    },
+    "Line": {
+      "title": "Line",
+      "description": "A production line within a department",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the line" },
+        "departmentId": { "type": "string", "description": "ID of the parent department" },
+        "description": { "type": "string", "description": "Description of the line" },
+        "requirements": {
+          "type": "object",
+          "properties": {
+            "A": { "type": "number" },
+            "B": { "type": "number" },
+            "C": { "type": "number" },
+            "G": { "type": "number" }
+          },
+          "required": ["A", "B", "C", "G"]
+        }
+      },
+      "required": ["name", "departmentId", "requirements"]
+    },
+    "ManpowerRecord": {
+      "title": "ManpowerRecord",
+      "description": "Daily manpower and overtime record",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date", "description": "Date of the record (YYYY-MM-DD)" },
+        "departmentId": { "type": "string", "description": "ID of the department" },
+        "lineId": { "type": "string", "description": "ID of the line" },
+        "shift": { "type": "string", "enum": ["A", "B", "C", "G"], "description": "Shift identifier (A, B, C, or G)" },
+        "count": { "type": "number", "description": "Number of employees present" },
+        "otCount": { "type": "number", "description": "Total employees on overtime" },
+        "recordedBy": { "type": "string", "description": "UID of the user who recorded this" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the record was created" }
+      },
+      "required": ["date", "departmentId", "lineId", "shift", "count", "otCount", "recordedBy", "timestamp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "hr", "supervisor"] },
+        "name": { "type": "string" },
+        "assignedLines": { "type": "array", "items": { "type": "string" } },
+        "assignedDepts": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["email", "role"]
+    },
+    "EmailSettings": {
+      "title": "EmailSettings",
+      "description": "Settings for automated email reporting",
+      "type": "object",
+      "properties": {
+        "serviceId": { "type": "string" },
+        "templateId": { "type": "string" },
+        "publicKey": { "type": "string" },
+        "receiverEmail": { "type": "string", "format": "email" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["serviceId", "templateId", "publicKey", "receiverEmail"]
+    }
+  },
+  "firestore": {
+    "/departments/{departmentId}": {
+      "schema": "Department",
+      "description": "List of departments"
+    },
+    "/lines/{lineId}": {
+      "schema": "Line",
+      "description": "List of lines across all departments"
+    },
+    "/records/{recordId}": {
+      "schema": "ManpowerRecord",
+      "description": "Daily manpower and OT records"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and roles"
+    },
+    "/settings/email": {
+      "schema": "EmailSettings",
+      "description": "Global email configuration"
+    }
+  }
+}

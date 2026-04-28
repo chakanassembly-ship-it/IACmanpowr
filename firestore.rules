@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Auth tokens in this environment don't reliably have email_verified, but we check if present
+    // For this specific app, we trust isSignedIn for base access, but restrict sensitive actions to roles
+    function isVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email.size() > 0);
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role lookup
+    function getUserRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
+    }
+
+    function isHR() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'hr';
+    }
+
+    function isSupervisor() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'supervisor';
+    }
+
+    // 1. Departments
+    function isValidDepartment(data) {
+      return data.keys().hasAll(['name']) && 
+             data.keys().size() <= 5 &&
+             data.name is string && data.name.size() <= 100 &&
+             (!data.keys().hasAny(['hasLines']) || data.hasLines is bool) &&
+             (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 500)) &&
+             (!data.keys().hasAny(['targets']) || (
+               data.targets is map &&
+               data.targets.keys().hasAll(['A', 'G', 'B', 'C']) &&
+               data.targets.A is int && data.targets.G is int &&
+               data.targets.B is int && data.targets.C is int
+             ));
+    }
+
+    match /departments/{departmentId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidDepartment(incoming());
+      allow update: if isAdmin() && isValidDepartment(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 2. Lines
+    function isValidLine(data) {
+      return data.keys().hasAll(['name', 'departmentId', 'requirements']) &&
+             data.keys().size() <= 5 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.departmentId is string && data.departmentId.size() <= 128 &&
+             // Relational Sync: Verify department exists
+             exists(/databases/$(database)/documents/departments/$(data.departmentId)) &&
+             data.requirements is map &&
+             data.requirements.keys().hasAll(['A', 'G', 'B', 'C']) &&
+             data.requirements.A is int && data.requirements.G is int &&
+             data.requirements.B is int && data.requirements.C is int &&
+             (!data.keys().hasAny(['description']) || (data.description is string && data.description.size() <= 500));
+    }
+
+    match /lines/{lineId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidLine(incoming());
+      allow update: if isAdmin() && isValidLine(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 3. Records
+    function isValidRecord(data) {
+      return data.keys().hasAll(['date', 'departmentId', 'shift', 'count', 'otCount', 'recordedBy', 'timestamp']) &&
+             data.keys().size() <= 8 &&
+             data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.departmentId is string && data.departmentId.size() <= 128 &&
+             (!data.keys().hasAny(['lineId']) || (data.lineId is string && data.lineId.size() <= 128)) &&
+             data.shift in ['A', 'G', 'B', 'C'] &&
+             data.count is int && data.count >= 0 &&
+             data.otCount is int && data.otCount >= 0 &&
+             data.recordedBy == request.auth.uid &&
+             data.timestamp is string; // ISO String as per app
+    }
+
+    match /records/{recordId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn(); // Forced to eval resource.data by convention but here we allow general read for reports
+      allow create: if (isAdmin() || isHR() || isSupervisor()) && isValidRecord(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 4. Users
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             data.email is string && data.email.size() <= 200 &&
+             data.role in ['admin', 'hr', 'supervisor'] &&
+             (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 100)) &&
+             (!data.keys().hasAny(['uid']) || (data.uid is string && data.uid.size() <= 128)) &&
+             (!data.keys().hasAny(['assignedLines']) || (data.assignedLines is list && data.assignedLines.size() <= 100)) &&
+             (!data.keys().hasAny(['assignedDepts']) || (data.assignedDepts is list && data.assignedDepts.size() <= 100));
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if (isAdmin() || (isSignedIn() && userId == request.auth.uid)) && isValidUser(incoming());
+      allow update: if (
+        isAdmin() || 
+        (isSignedIn() && userId == request.auth.uid && 
+         incoming().role == existing().role && // Prevent self-role-escalation
+         incoming().email == existing().email &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'assignedLines', 'assignedDepts']))
+      ) && isValidUser(incoming());
+      allow delete: if isAdmin() && userId != request.auth.uid;
+    }
+
+    // 5. Settings
+    function isValidEmailSettings(data) {
+      return data.keys().hasAll(['serviceId', 'templateId', 'publicKey', 'receiverEmail']) &&
+             data.keys().size() <= 7 &&
+             data.serviceId is string && data.templateId is string && data.publicKey is string &&
+             data.receiverEmail is string && data.receiverEmail.size() <= 200 &&
+             (!data.keys().hasAny(['updatedAt']) || data.updatedAt is string) &&
+             (!data.keys().hasAny(['updatedBy']) || data.updatedBy is string);
+    }
+
+    match /settings/email {
+      allow read: if isAdmin() || isHR();
+      allow write: if isAdmin() && isValidEmailSettings(incoming());
+    }
+  }
+}
