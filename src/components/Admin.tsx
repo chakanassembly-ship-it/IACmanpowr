@@ -3,9 +3,8 @@ import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, where
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Department, Line, UserProfile } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { app } from '../lib/firebase'; // 🔥 IMPORTANT
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -380,9 +379,7 @@ export default function Admin() {
       }
 
       // We use a secondary app instance to create the user without logging out the current admin
-      const secondaryAppName = `SecondaryApp_${Date.now()}`;
-      const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
-      const secondaryAuth = getAuth(secondaryApp);
+      const secondaryAuth = getAuth(app);
 
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, firebaseEmail, newUserPassword);
       
@@ -399,8 +396,7 @@ export default function Admin() {
       // Sign out from the secondary auth instance and delete the app
       await signOut(secondaryAuth);
       // Ensure cleanup
-      const { deleteApp } = await import('firebase/app');
-      await deleteApp(secondaryApp);
+      
 
       setNewUserEmail('');
       setNewUserPassword('');
