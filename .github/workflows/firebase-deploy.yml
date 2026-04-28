@@ -13,22 +13,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node
+      - name: Setup Node (LTS stable)
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20   # 🔥 change from 18 → 20
 
-<<<<<<< HEAD
-      - name: Clean install dependencies
+      - name: Install dependencies (safe)
         run: |
-          rm -rf node_modules package-lock.json
-          npm install
-=======
-      - name: Install dependencies (clean + fix)
-        run: |
-          npm ci || npm install
-          npm rebuild @tailwindcss/oxide --force || true
->>>>>>> 110ad5f (Fix Tailwind oxide CI issue)
+          npm install --legacy-peer-deps
 
       - name: Build project
         run: npm run build
